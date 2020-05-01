@@ -36,7 +36,7 @@
 typedef uint16_t dataType;
 typedef enum {false, true} bool;
 
-void PanTompkins(uint16_t *value_adc, uint16_t BUFFSIZE);
+float PanTompkins(float singleSample);
 
 #endif
 

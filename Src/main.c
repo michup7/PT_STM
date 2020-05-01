@@ -51,6 +51,8 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 uint16_t value_adc[BUFFSIZE];
+uint16_t wynik;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,7 +68,7 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 volatile uint8_t recv_char;
-volatile uint8_t dane_gotowe;
+volatile uint8_t dane_gotowe=0;
 
 void send_string(char* s)
 {
@@ -135,6 +137,30 @@ int main(void)
 	  HAL_Delay(100);
 	  HAL_ADC_Start(&hadc1);
 
+
+	     if(dane_gotowe=1)
+	 {
+	     for(int curr=0; curr<=15; curr++)
+	     {
+	         printf("Przed PT\n");
+	         wynik=PanTompkins(value_adc[curr]);
+	         printf("Po PT curr= %d \n",curr);
+	         printf("QRS?:  %d> ",wynik);
+	     }
+	     dane_gotowe=0;
+	 }
+
+	     if(dane_gotowe=2)
+	 {
+	     for(int currr=16; currr<=31; currr++)
+	     {
+	    	 printf("Przed PT\n");
+	    	 wynik=PanTompkins(value_adc[currr]);
+	    	 printf("Po PT curr= %d \n",currr);
+	    	 printf("QRS?:  %d> ",wynik);
+	     }
+	     dane_gotowe=0;
+	 }
 	  /*if(dane_gotowe !=0)
 	  {
 		 Pan_Tompkins(&value_adc[(dane_gotowe == 1)?0 : BUFFSIZE/2],BUFFSIZE/2);
