@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFFSIZE 10
+#define BUFFSIZE 32
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
