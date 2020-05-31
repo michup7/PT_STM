@@ -27,6 +27,8 @@ Src/stm32f4xx_it.o: ../Src/stm32f4xx_it.c \
  C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h \
  C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h \
  C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h \
+ C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
+ C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
  C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Inc/stm32f4xx_it.h
 
@@ -85,6 +87,10 @@ C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Dr
 C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h:
 
 C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h:
+
+C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h:
+
+C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h:
 
 C:/Users/micha/OneDrive/Dokumenty/STM/CWICZENIA/DMA_EKG/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h:
 

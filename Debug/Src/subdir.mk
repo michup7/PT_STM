@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Src/Pan_Tompkins.c \
+../Src/RR_Arytmia.c \
 ../Src/main.c \
 ../Src/stm32f4xx_hal_msp.c \
 ../Src/stm32f4xx_it.c \
@@ -13,6 +14,7 @@ C_SRCS += \
 
 OBJS += \
 ./Src/Pan_Tompkins.o \
+./Src/RR_Arytmia.o \
 ./Src/main.o \
 ./Src/stm32f4xx_hal_msp.o \
 ./Src/stm32f4xx_it.o \
@@ -21,6 +23,7 @@ OBJS += \
 
 C_DEPS += \
 ./Src/Pan_Tompkins.d \
+./Src/RR_Arytmia.d \
 ./Src/main.d \
 ./Src/stm32f4xx_hal_msp.d \
 ./Src/stm32f4xx_it.d \

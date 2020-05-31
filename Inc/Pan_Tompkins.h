@@ -1,6 +1,6 @@
 /**
  * ------------------------------------------------------------------------------*
- * File: PanTompkins.h                                                           *
+bi * File: PanTompkins.h                                                           *
  *       Header for an ANSI-C implementation of Pan-Tompkins real-time QRS detec-*
  *       tion algorithm                                                          *
  * Author: Rafael de Moura Moreira <rafaelmmoreira@gmail.com>                    *
@@ -30,11 +30,12 @@
  *-------------------------------------------------------------------------------*
  */
 #include <stdio.h>
+#include <stdbool.h>
 #ifndef PAN_TOMPKINS
 #define PAN_TOMPKINS
 
 typedef uint16_t dataType;
-typedef enum {false, true} bool;
+//typedef enum {false, true} bool;
 
 float PanTompkins(float singleSample);
 

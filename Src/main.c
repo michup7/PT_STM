@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include "Pan_Tompkins.h"
 /* USER CODE END Includes */
 
@@ -47,12 +48,16 @@
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
+SPI_HandleTypeDef hspi1;
+
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 uint16_t value_adc[BUFFSIZE];
-uint16_t wynik;
-
+bool wynik;
+volatile uint8_t dane_gotowe;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,6 +66,8 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -68,15 +75,15 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 volatile uint8_t recv_char;
-volatile uint8_t dane_gotowe=0;
-
 void send_string(char* s)
 {
 	HAL_UART_Transmit(&huart1, (uint8_t*)s, strlen(s), 1000);
 }
 void setup_uart(UART_HandleTypeDef* uart)
 {
-	HAL_Delay(1000);
+	//Bluetooth HM10
+
+	/*HAL_Delay(1000);
 	HAL_UART_Transmit(uart, "AT\n", strlen("AT\n"), 100);
 
 	HAL_Delay(100);
@@ -87,6 +94,17 @@ void setup_uart(UART_HandleTypeDef* uart)
 
 	HAL_Delay(100);
 	HAL_UART_Transmit(uart, "AT+PIN111111\n", strlen("AT+PIN111111\n"), 100);
+	*/
+
+	//Bluetooth HC-05
+
+	HAL_Delay(1000);
+	HAL_UART_Transmit(uart, "AT\n", strlen("AT\n"), 100);
+
+	HAL_Delay(100);
+	HAL_UART_Transmit(uart, "AT+NAME=EKG_BT\n", strlen("AT+NAME=EKG_BT\n"), 100);
+
+
 
 }
 
@@ -99,6 +117,7 @@ void setup_uart(UART_HandleTypeDef* uart)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	dane_gotowe=0;
 
   /* USER CODE END 1 */
 
@@ -123,55 +142,112 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  //init_panTompkins();
   HAL_ADC_Start_DMA(&hadc1,(uint16_t*)&value_adc,BUFFSIZE);
+  HAL_TIM_Base_Start(&htim2);
   HAL_UART_Receive_IT(&huart1, &recv_char, 1);
   setup_uart(&huart1);
+  init_PanTompkins();
+  int IntervalCounter=0;
+  //int iIntervalTime=0;
+  int czas[3];
+  czas[0]=0;
+  czas[1]=0;
+  czas[2]=0;
+  int n=0;
+  int Arytmia=1;
+  int Pulse=0;
+  int FifthCounter=0;
+  int PrevArytmia=0;
+  //int State=0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_Delay(100);
-	  HAL_ADC_Start(&hadc1);
-
-
-	     if(dane_gotowe=1)
+	     if(dane_gotowe==1)
 	 {
 	     for(int curr=0; curr<=15; curr++)
 	     {
-	         printf("Przed PT\n");
 	         wynik=PanTompkins(value_adc[curr]);
-	         printf("Po PT curr= %d \n",curr);
-	         printf("QRS?:  %d> ",wynik);
+	         if(wynik==false)
+	         {
+	        	 IntervalCounter++;
+	        	 //HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	         }
+	         else{
+	        	 HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin );
+	        	 czas[n]=IntervalCounter*5;
+	        	 IntervalCounter=0;
+
+	        	 if (n==2){
+	        		 czas[n-2]=czas[n-1];
+	        		 czas[n-1]=czas[n];
+	        		 czas[n]=wynik;
+	        		 Arytmia=RR_Arytmia(czas[n-2],czas[n-1],czas[n],Pulse);
+	        		if ((Arytmia==5)&&(PrevArytmia==Arytmia)){
+	        			FifthCounter++;
+	        			if (FifthCounter==4){
+	        				Pulse=1;
+	        			}
+	        		}else{
+	        			FifthCounter=0;
+	        			Pulse=0;
+	        		}
+	        	 }else{
+	        		 n++;
+	        	 }
+	         }
 	     }
 	     dane_gotowe=0;
 	 }
 
-	     if(dane_gotowe=2)
+	     if(dane_gotowe==2)
 	 {
 	     for(int currr=16; currr<=31; currr++)
 	     {
-	    	 printf("Przed PT\n");
 	    	 wynik=PanTompkins(value_adc[currr]);
-	    	 printf("Po PT curr= %d \n",currr);
-	    	 printf("QRS?:  %d> ",wynik);
-	     }
-	     dane_gotowe=0;
-	 }
-	  /*if(dane_gotowe !=0)
-	  {
-		 Pan_Tompkins(&value_adc[(dane_gotowe == 1)?0 : BUFFSIZE/2],BUFFSIZE/2);
-		 dane_gotowe = 0;
-	  }*/
+	    	 if(wynik==false)
+	    	 	         {
+	    	 	        	 IntervalCounter++;
+	    	 	        	//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	    	 	         }
+	    	 else{
+	    		 HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	    	 	        	 czas[n]=IntervalCounter*5;
+	    	 	        	 IntervalCounter=0;
 
+	    	 	        	 if (n==2){
+	    	 	        		 czas[n-2]=czas[n-1];
+	    	 	        		 czas[n-1]=czas[n];
+	    	 	        		 czas[n]=wynik;
+	    	 	        		 Arytmia=RR_Arytmia(czas[n-2],czas[n-1],czas[n],Pulse);
+	    	 	        		if ((Arytmia==5)&&(PrevArytmia==Arytmia)){
+	    	 	        			FifthCounter++;
+	    	 	        			if (FifthCounter==4){
+	    	 	        				Pulse=1;
+	    	 	        			}
+	    	 	        		}else{
+	    	 	        			FifthCounter=0;
+	    	 	        			Pulse=0;
+	    	 	        		}
+	    	 	        	 }else{
+	    	 	        		 n++;
+	    	 	        	 }
+	    	 	         }
+	    	 	     }
+	    	 	     dane_gotowe=0;
+	 }
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+
+  }PrevArytmia=Arytmia;
   /* USER CODE END 3 */
 }
 
@@ -243,8 +319,8 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_TRGO;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DMAContinuousRequests = ENABLE;
@@ -265,6 +341,89 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8399;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 40;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -329,29 +488,30 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SPI1_CS_Pin|LD2_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : SPI1_CS_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = SPI1_CS_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
 /* USER CODE BEGIN 4 */
 void HAL_ADC_ConvHalfCpltCallback (ADC_HandleTypeDef* hadc1)
 {
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	//HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 	dane_gotowe=1;
 }
 
 void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc1)
 {
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+	//HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 	dane_gotowe=2;
 }
 

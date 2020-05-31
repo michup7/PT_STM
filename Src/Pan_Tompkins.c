@@ -156,8 +156,8 @@
 #define WINDOWSIZE 20   // Integrator window size, in samples. The article recommends 150ms. So, FS*0.15.
 // However, you should check empirically if the waveform looks ok.
 #define NOSAMPLE -32000 // An indicator that there are no more samples to read. Use an impossible value for a sample.
-#define FS 360          // Sampling frequency.
-#define BUFFSIZE 1    // The size of the buffers (in samples). Must fit more than 1.66 times an RR interval, which
+#define FS 250         // Sampling frequency.
+#define BUFFSIZE 400  // The size of the buffers (in samples). Must fit more than 1.66 times an RR interval, which
 // typically could be around 1 second.
 
 #define DELAY 22		// Delay introduced by the filters. Filter only output samples after this one.
@@ -167,57 +167,18 @@
 #include "Pan_Tompkins.h"
 #include <stdio.h>      // Remove if not using the standard file functions.
 #include <stdlib.h>
-
-
-
-
-
-
-/*
-    Use this function for any kind of setup you need before getting samples.
-    This is a good place to open a file, initialize your hardware and/or open
-    a serial connection.
-    Remember to update its parameters on the panTompkins.h file as well.
-*/
-
-
-
-
-/*
-    Use this function to read and return the next sample (from file, serial,
-    A/D converter etc) and put it in a suitable, numeric format. Return the
-    sample, or NOSAMPLE if there are no more samples.
-*/
-
-
-/*
-    Use this function to output the information you see fit (last RR-interval,
-    sample index which triggered a peak detection, whether each sample was a R
-    peak (1) or not (0) etc), in whatever way you see fit (write on screen, write
-    on file, blink a LED, call other functions to do other kinds of processing,
-    such as feature extraction etc). Change its parameters to receive the necessary
-    information to output.
-*/
-
-
-
-/*
-    This is the actual QRS-detecting function. It's a loop that constantly calls the input and output functions
-    and updates the thresholds and averages until there are no more samples. More details both above and in
-    shorter comments below.
-*/
-float PanTompkins(float singleSample) {
-    // The signal array is where the most recent samples are kept. The other arrays are the outputs of each
+#include <stdbool.h>
+   // The signal array is where the most recent samples are kept. The other arrays are the outputs of each
     // filtering module: DC Block, low pass, high pass, integral etc.
     // The output is a buffer where we can change a previous result (using a back search) before outputting.
-    dataType signal[BUFFSIZE], dcblock[BUFFSIZE], lowpass[BUFFSIZE], highpass[BUFFSIZE], derivative[BUFFSIZE], squared[BUFFSIZE], integral[BUFFSIZE], outputSignal[BUFFSIZE];
+    static dataType signal[BUFFSIZE], lowpass[BUFFSIZE], highpass[BUFFSIZE], derivative, squared[BUFFSIZE], integral[BUFFSIZE], outputSignal[BUFFSIZE];
 
     // rr1 holds the last 8 RR intervals. rr2 holds the last 8 RR intervals between rrlow and rrhigh.
     // rravg1 is the rr1 average, rr2 is the rravg2. rrlow = 0.92*rravg2, rrhigh = 1.08*rravg2 and rrmiss = 1.16*rravg2.
     // rrlow is the lowest RR-interval considered normal for the current heart beat, while rrhigh is the highest.
     // rrmiss is the longest that it would be expected until a new QRS is detected. If none is detected for such
     // a long interval, the thresholds must be adjusted.
-    int rr1[8], rr2[8], rravg1, rravg2, rrlow = 0, rrhigh = 0, rrmiss = 0;
+    static int rr1[8], rr2[8], rravg1, rravg2, rrlow, rrhigh, rrmiss;
 
     // i and j are iterators for loops.
     // sample counts how many samples have been read so far.
@@ -225,13 +186,13 @@ float PanTompkins(float singleSample) {
     // lastSlope stores the value of the squared slope when the last R sample was triggered.
     // currentSlope helps calculate the max. square slope for the present sample.
     // These are all long unsigned int so that very long signals can be read without messing the count.
-    long unsigned int i, j, sample = 0, lastQRS = 0, lastSlope = 0, currentSlope = 0;
+    static long unsigned int i, j, sample, lastQRS, lastSlope, currentSlope;
 
     // This variable is used as an index to work with the signal buffers. If the buffers still aren't
     // completely filled, it shows the last filled position. Once the buffers are full, it'll always
     // show the last position, and new samples will make the buffers shift, discarding the oldest
     // sample and storing the newest one on the last position.
-    int current;
+    static int current;
 
     // There are the variables from the original Pan-Tompkins algorithm.
     // The ones ending in _i correspond to values from the integrator.
@@ -240,18 +201,39 @@ float PanTompkins(float singleSample) {
     // The threshold 1 variables are the threshold variables. If a signal sample is higher than this threshold, it's a peak.
     // The threshold 2 variables are half the threshold 1 ones. They're used for a back search when no peak is detected for too long.
     // The spk and npk variables are, respectively, running estimates of signal and noise peaks.
-    dataType peak_i = 0, peak_f = 0, threshold_i1 = 0, threshold_i2 = 0, threshold_f1 = 0, threshold_f2 = 0, spk_i = 0, spk_f = 0, npk_i = 0, npk_f = 0;
+    static dataType peak_i, peak_f, threshold_i1, threshold_i2, threshold_f1, threshold_f2, spk_i, spk_f, npk_i, npk_f;
 
     // qrs tells whether there was a detection or not.
     // regular tells whether the heart pace is regular or not.
     // prevRegular tells whether the heart beat was regular before the newest RR-interval was calculated.
-    bool qrs, regular = true, prevRegular;
+    static bool qrs, regular = true, prevRegular;
 
-    // Initializing the RR averages
-    for (i = 0; i < 8; i++) {
+void init_PanTompkins()
+{
+
+	rravg1 = 0, rravg2 = 0, rrlow = 0, rrhigh = 0, rrmiss = 0;
+	i = 0, j = 0, sample = 0, lastQRS = 0, lastSlope = 0, currentSlope = 0;
+	current=0;
+	peak_i = 0, peak_f = 0, threshold_i1 = 0, threshold_i2 = 0, threshold_f1 = 0, threshold_f2 = 0, spk_i = 0, spk_f = 0, npk_i = 0, npk_f = 0;
+	qrs=false, regular = true, prevRegular=false;
+	derivative = 0;
+	 for (j = 0; j < BUFFSIZE-1; j++) {
+		 signal[BUFFSIZE] = 0;
+		 lowpass[BUFFSIZE] = 0;
+		 highpass[BUFFSIZE] = 0;
+		 squared[BUFFSIZE] = 0;
+		 integral[BUFFSIZE] = 0;
+		 outputSignal[BUFFSIZE] = 0;
+	    }
+	// Initializing the RR averages
+	 for (i = 0; i < 8; i++) {
         rr1[i] = 0;
         rr2[i] = 0;
     }
+}
+
+float PanTompkins(float singleSample) {
+
 
     // The main loop where everything proposed in the paper happens. Ends when there are no more signal samples.
 
@@ -259,13 +241,12 @@ float PanTompkins(float singleSample) {
         // If they are, shift them, discarding the oldest sample and adding the new one at the end.
         // Else, just put the newest sample in the next free position.
         // Update 'current' so that the program knows where's the newest sample.
-        if (sample >= BUFFSIZE) {
+       //1ms
+    if (sample >= BUFFSIZE) {
             for (i = 0; i < BUFFSIZE - 1; i++) {
                 signal[i] = signal[i + 1];
-                dcblock[i] = dcblock[i + 1];
                 lowpass[i] = lowpass[i + 1];
                 highpass[i] = highpass[i + 1];
-                derivative[i] = derivative[i + 1];
                 squared[i] = squared[i + 1];
                 integral[i] = integral[i + 1];
                 outputSignal[i] = outputSignal[i + 1];
@@ -275,7 +256,7 @@ float PanTompkins(float singleSample) {
             current = sample;
         }
         signal[current] = singleSample;
-
+//		50us
         // If no sample was read, stop processing!
         if (signal[current] == NOSAMPLE)
         sample++; // Update sample counter
@@ -283,26 +264,25 @@ float PanTompkins(float singleSample) {
         // DC Block filter
         // This was not proposed on the original paper.
         // It is not necessary and can be removed if your sensor or database has no DC noise.
-        if (current >= 1)
+       /* if (current >= 1)
             dcblock[current] = signal[current] - signal[current - 1] + 0.995 * dcblock[current - 1];
         else
-            dcblock[current] = 0;
+            dcblock[current] = 0;*/
 
 
         // Low Pass filter
         // Implemented as proposed by the original paper.
         // y(nT) = 2y(nT - T) - y(nT - 2T) + x(nT) - 2x(nT - 6T) + x(nT - 12T)
         // Can be removed if your signal was previously filtered, or replaced by a different filter.
-        lowpass[current] = dcblock[current];
-
-        if (current >= 1)
-            lowpass[current] += 2 * lowpass[current - 1];
-        if (current >= 2)
-            lowpass[current] -= lowpass[current - 2];
-        if (current >= 6)
-            lowpass[current] -= 2 * dcblock[current - 6];
-        if (current >= 12)
-            lowpass[current] += dcblock[current - 12];
+        lowpass[current] = signal[current];
+               if (current >= 1)
+                   lowpass[current] += 2*lowpass[current-1];
+               if (current >= 2)
+                   lowpass[current] -= lowpass[current-2];
+               if (current >= 6)
+                   lowpass[current] -= 2*signal[current-6];
+               if (current >= 12)
+                   lowpass[current] += signal[current-12];
 
 
 
@@ -319,7 +299,7 @@ float PanTompkins(float singleSample) {
             highpass[current] += 32*lowpass[current-16];
         if (current >= 32)
             highpass[current] -= (1/32)*lowpass[current-32];*/
-        highpass[current] = -(1 / 32) * lowpass[current];
+       /* highpass[current] = -(1 / 32) * lowpass[current];
 
         if (current >= 1)
             highpass[current] += highpass[current - 1];
@@ -329,8 +309,16 @@ float PanTompkins(float singleSample) {
             highpass[current] -= lowpass[current - 17];
         if (current >= 32)
             highpass[current] += (1 / 32) * lowpass[current - 32];
-
-
+        	*/
+        highpass[current] = -lowpass[current];
+        if (current >= 1)
+            highpass[current] += highpass[current - 1];
+        if (current >= 16)
+            highpass[current] += 32*lowpass[current - 16];
+        if (current >= 17)
+            highpass[current] -= 32*lowpass[current - 17];
+        if (current >= 32)
+            highpass[current] += lowpass[current - 32];
 
         // Derivative filter
         // This is an alternative implementation, the central difference method.
@@ -338,9 +326,17 @@ float PanTompkins(float singleSample) {
         // The original formula used by Pan-Tompkins was:
         // y(nT) = (1/8T)[-x(nT - 2T) - 2x(nT - T) + 2x(nT + T) + x(nT + 2T)]
         // y(nT) = (1/8)[2x(nT) + x(nT-T) - x(nT-3T)- 2x(nT-4T)]
-        derivative[current] = highpass[current];
+        /*derivative[current] = highpass[current];
         if (current > 0)
-            derivative[current] -= highpass[current - 1];
+            derivative[current] -= highpass[current - 1];*/
+        derivative = 2*highpass[current];
+                if (current >=1)
+                    derivative += highpass[current-1];
+                if (current>=3)
+                    derivative -= highpass[current-3];
+                if (current>=4)
+                    derivative -= 2*highpass[current-4];
+                derivative /=8;
         /*derivative[current]=(1/4)*highpass[current];
         if (current>=1)
             derivative[current]+=(1/8)*highpass[current-1];
@@ -352,7 +348,7 @@ float PanTompkins(float singleSample) {
 
         // This just squares the derivative, to get rid of negative values and emphasize high frequencies.
         // y(nT) = [x(nT)]^2.
-        squared[current] = derivative[current] * derivative[current];
+        squared[current] = derivative* derivative;
 
 
         // Moving-Window Integration
@@ -585,8 +581,6 @@ float PanTompkins(float singleSample) {
         // lighter thresholds. The final waveform output does match the original signal, though.
         outputSignal[current] = qrs;
         return qrs;
-
-
 
     }
 
