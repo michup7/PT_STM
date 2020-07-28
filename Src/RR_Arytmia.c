@@ -13,11 +13,13 @@ int RR_Arytmia(int Sample1, int Sample2, int Sample3, int State)//czasy w ms, fl
 {	if (State==0){
     Category=1;//2
 
-    if (((Sample1<800)&&(Sample2<800)&&(Sample3<800))||((Sample1+Sample2+Sample3<1800))){//3a
+    if ((Sample2 < 600)&&(Sample2>Sample3)){ //3
+	Category=5;
+
+	if (((Sample1<800)&&(Sample2<800)&&(Sample3<800))||((Sample1+Sample2+Sample3<1800))){//3a
     	Category=5;
     }
-if ((Sample2 < 600)&&(Sample2<Sample3)){ //3
-	Category=5;
+
 }else{
 	State=1;
 }

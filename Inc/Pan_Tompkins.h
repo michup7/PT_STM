@@ -37,7 +37,7 @@ bi * File: PanTompkins.h                                                        
 typedef uint16_t dataType;
 //typedef enum {false, true} bool;
 
-float PanTompkins(float singleSample);
+bool PanTompkins(float singleSample);
 
 #endif
 
