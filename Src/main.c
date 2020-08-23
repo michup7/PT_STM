@@ -54,8 +54,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint16_t value_adc[BUFFSIZE];
-
+uint8_t value_adc[BUFFSIZE];
+uint8_t pomiary[21000];
+uint8_t kategorie[21000];
 bool wynik;
 volatile uint8_t dane_gotowe;
 /* USER CODE END PV */
@@ -139,129 +140,176 @@ int main(void)
   MX_TIM2_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_ADC_Start_DMA(&hadc1,(uint16_t*)&value_adc,BUFFSIZE);
+  HAL_ADC_Start_DMA(&hadc1,(uint32_t*)value_adc,BUFFSIZE);
   HAL_TIM_Base_Start(&htim2);
   HAL_UART_Receive_IT(&huart1, &recv_char, 1);
   setup_uart(&huart1);
   init_PanTompkins();
   W25qxx_Init();
-  /*int IntervalCounter=0;
-  int iIntervalTime=0;
-  int czas[7];
-  czas[0]=0;
-  czas[1]=0;
-  czas[2]=0;
-  czas[3]=0;
-  czas[4]=0;
-  czas[5]=0;
-  czas[6]=0;
+
+
+  int IntervalCounter=0;
   int n=0;
-  int Arytmia=1;
-  int Pulse=0;
-  int FifthCounter=0;
-  int PrevArytmia=0;
-  int State=0;*/
+  int czas=0;
+  int CountFirstsOnes=0;
   int curr;
+  int isArythmiaDetected=0;
+  int CountOnes=0;
+  int CountFifthCategories=0;
+  int ostatnieInterwaly[5];
+  int arythmiaStartIndex;
+  int arythmiaEndIndex;
+  int kategoria;
+  int nAfterArythmia=0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+  while(CountFirstsOnes<6) //Pêtla wykonywana tak d³ugo a¿ Pan Tompkins nie wyrzuci 6 jedynki - pomijamy pierwsze 6.
   {
-	  if(dane_gotowe==1)
+	  if(dane_gotowe==1||dane_gotowe==2)
 	  {
-	     for(curr=0; curr<=15; curr++)
+		  for(curr=(dane_gotowe-1)*16; curr<=(dane_gotowe-1)*16+15; curr++)
+		  {
+			  wynik=PanTompkins(value_adc[curr]);
+			  if(wynik==1)
+			  {
+				  CountFirstsOnes++;
+			  }
+			  if(CountFirstsOnes==6)
+			  {
+				  pomiary[n]=value_adc[curr];
+				  kategorie[n]=1;
+				  if(wynik==0)
+				  {
+					  IntervalCounter++;
+				  }
+				  n++;
+			  }
+		  }
+	  }
+	  dane_gotowe=0;
+  }
+
+  while (!(nAfterArythmia>=6000&&isArythmiaDetected==1)) //Wykonuj tak d³ugo a¿ arytmia nie zostanie wykryta i n bêdzie mniejsze ni¿ 6000
+  {
+	  if(dane_gotowe==1||dane_gotowe==2) //Gdy dane bêd¹ gotowe
+	  {
+	     for(curr=(dane_gotowe-1)*16; (curr<=(dane_gotowe-1)*16+15)&&!(n>=6000&&isArythmiaDetected==1); curr++) //przejechanie po wszystkich adresach
 	     {
-	         wynik=PanTompkins(value_adc[curr]);
-	         if(wynik==0)
+	         wynik=PanTompkins(value_adc[curr]); //Pan Tompkins z wyniku
+	         if(wynik==0) //Je¿eli Pan Tompkins wywali 0 to dodajemy
 	         {
-	        	//IntervalCounter++;
+	        	IntervalCounter++;
 	        	//HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 	         }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	         else
 	         {
 	        	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin );
-	        	/* czas[n]=IntervalCounter*5;
-	        	 IntervalCounter=0;
-
-	        	 if (n==6)
-	        	 {
-	        		 czas[n-6]=czas[n-5];
-	        		 czas[n-5]=czas[n-4];
-	        		 czas[n-4]=czas[n-3];
-	        		 czas[n-3]=czas[n-2];
-	        		 czas[n-2]=czas[n-1];
-	        		 czas[n-1]=czas[n];
-	        		 czas[n]=wynik;
-	        		 Arytmia=RR_Arytmia(czas[n-6],czas[n-5],czas[n-4],Pulse);
-	        		 if ((Arytmia==5)&&(PrevArytmia==Arytmia))
-	        		 {
-	        			FifthCounter++;
-	        			if (FifthCounter==4)
-	        			{
-	        				Pulse=1;
-	        			}
-	        		}
-	        		 else
-	        		{
-	        			FifthCounter=0;
-	        			Pulse=0;
-	        		}
-	        	 }
-	        	 else
-	        	 {
-	        		 n++;
-	        	 }*/
-	         }
+	        	czas=IntervalCounter*5;
+	        	PushInterval(czas);
+				if(CountOnes==5)
+				{
+					for(int a=0;a<4;a++)
+					{
+						ostatnieInterwaly[a]=ostatnieInterwaly[a+1];
+					}
+					ostatnieInterwaly[4]=IntervalCounter+1;
+				}
+				else
+				{
+					ostatnieInterwaly[CountOnes]=IntervalCounter+1;
+					CountOnes++;
+				}
+				if(CountOnes>=3)
+				{
+					kategoria=ReturnCategory(0);
+					if(kategoria==5)
+					{
+						CountFifthCategories++;
+					}
+					else
+					{
+						if(CountFifthCategories!=0&&CountFifthCategories<4)
+						{
+							int startFifthCategories=n-ostatnieInterwaly[CountOnes-1];
+							for(int a=0;a<=CountFifthCategories;a++)
+							{
+								startFifthCategories-=ostatnieInterwaly[CountOnes-2-a];
+							}
+							for(int a=CountFifthCategories;a>0;a--)
+							{
+								kategoria=ReturnCategory(a);
+								for(int b=0;b<ostatnieInterwaly[CountOnes-2-a];b++)
+								{
+									kategorie[startFifthCategories]=kategoria;
+									startFifthCategories++;
+								}
+							}
+						}
+						CountFifthCategories=0;
+					}
+					kategoria=ReturnCategory(0);
+					for(int a=ostatnieInterwaly[CountOnes-2]+ostatnieInterwaly[CountOnes-1];a>ostatnieInterwaly[CountOnes-1];a--)
+					{
+						kategorie[n-a]=kategoria;
+					}
+				}
+				else
+				{
+					if(CountOnes==1)
+					{
+						for(int a=0;a<n;a++)
+						{
+							kategorie[n]=1;
+						}
+					}
+				}
+				if(isArythmiaDetected!=1)
+				{
+					isArythmiaDetected=IsArythmiaDetected();
+					if(isArythmiaDetected==1)
+					{
+						if(n-ReturnTotalIntervals()>0)
+						{
+							arythmiaStartIndex=n-ReturnTotalIntervals();
+						}
+						else
+						{
+							arythmiaStartIndex=0;
+						}
+						arythmiaEndIndex=n;
+					}
+				}
+				IntervalCounter=0;
+    		}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			if(isArythmiaDetected==1)
+ 			{
+				pomiary[n]=value_adc[curr];
+				nAfterArythmia++;
+				n++;
+ 			}
+			else
+			{
+				if(n<15000)
+				{
+					pomiary[n]=value_adc[curr];
+					n++;
+				}
+				else
+				{
+					for(int a=0;a<14999;a++)
+					{
+						pomiary[a]=pomiary[a+1];
+					}
+					pomiary[14999]=value_adc[curr];
+				}
+			}
 	     }
 	     dane_gotowe=0;
 	  }
-
-
-	  if(dane_gotowe==2)
-	  {
-		  for(int currr=16; currr<=31; currr++)
-		  {
-			  wynik=PanTompkins(value_adc[currr]);
-			  if(wynik==0)
-			  {
-	    	 	  //IntervalCounter++;
-				  //HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-			  }
-			  else
-			  {
-				  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-				  /* czas[n]=IntervalCounter*5;
-	    	 	 IntervalCounter=0;
-
-	    	 	 if (n==2)
-	    	 	 {
-	    	 		 czas[n-2]=czas[n-1];
-	    	 	     czas[n-1]=czas[n];
-	    	 	     czas[n]=wynik;
-	    	 	     Arytmia=RR_Arytmia(czas[n-2],czas[n-1],czas[n],Pulse);
-	    	 	     if ((Arytmia==5)&&(PrevArytmia==Arytmia))
-	    	 	     	 {
-	    	 	        	FifthCounter++;
-	    	 	        	if (FifthCounter==4)
-	    	 	        		{
-	    	 	        			Pulse=1;
-	    	 	        		}
-	    	 	     	 }
-	    	 	     else
-	    	 	     	 {
-	    	 	    	 	 FifthCounter=0;
-	    	 	    	 	 Pulse=0;
-	    	 	     	 }
-	    	 	 }
-	    	 	 else
-	    	 	 {
-	    	 		 n++;
-	    	 	 }*/
-			  }
-		  }
-	    dane_gotowe=0;
-	 }
 
     /* USER CODE END WHILE */
 
